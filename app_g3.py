@@ -10,42 +10,58 @@ import datetime
 import json
 from groq import Groq
 
-# ฟังก์ชันสำหรับโหลดโมเดล (ปรับปรุงใหม่)
+# 1. ฟังก์ชันสำหรับโหลดและเตรียมโมเดล
 @st.cache_resource
 def load_all():
     zip_name = "models.zip"
     zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn"
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    # เช็คว่าไฟล์หลักตัวนึงมีอยู่มั้ย ถ้าไม่มีให้โหลดใหม่
+    # เช็คว่าถ้ายังไม่มีไฟล์หลัก ให้โหลดและแตก ZIP
     if not os.path.exists("features_g1_short.pkl"):
         try:
-            with st.spinner('กำลังเตรียมโมเดล...'):
+            with st.spinner('กำลังดาวน์โหลดโมเดลจาก Google Drive...'):
                 urllib.request.urlretrieve(url, zip_name)
                 with zipfile.ZipFile(zip_name, 'r') as zip_ref:
-                    # แตกไฟล์ออกมาตรงๆ ไม่สร้างโฟลเดอร์ซ้อน
-                    zip_ref.extractall(".") 
-                os.remove(zip_name)
+                    zip_ref.extractall(".")  # แตกไฟล์ออกมาที่โฟลเดอร์ปัจจุบัน
+                os.remove(zip_name) # ลบไฟล์ Zip ทิ้งเพื่อประหยัดที่
         except Exception as e:
-            st.error(f"Error during unzip: {e}")
+            st.error(f"ดาวน์โหลดหรือแตกไฟล์ไม่สำเร็จ: {e}")
+            return None
 
-    # ตรวจสอบไฟล์ที่มีอยู่จริง (บรรทัดนี้จะช่วยให้คุณรู้ว่าไฟล์ไปอยู่ที่ไหน)
+    # รายชื่อไฟล์ที่มีอยู่จริงในระบบ (เอาไว้ใช้ตรวจสอบถ้า Error)
     current_files = os.listdir(".")
     
     try:
+        # โหลดไฟล์เข้า Dictionary
+        # หมายเหตุ: ถ้าคุณแตก Zip แล้วมันกลายเป็นโฟลเดอร์ ให้เติมชื่อโฟลเดอร์ข้างหน้าชื่อไฟล์นะครับ
         return {
             'g1_short': joblib.load("ensemble_short_models.pkl"),
             'g1_long':  joblib.load("ensemble_long_models.pkl"),
             'g1_f_s':   joblib.load("features_g1_short.pkl"),
         }
     except Exception as e:
-        # ถ้าพัง ให้โชว์รายชื่อไฟล์ที่มีทั้งหมด จะได้รู้ว่าสะกดชื่อไหนผิด
-        st.error(f"หาไฟล์ไม่เจอ! ในเครื่องมีไฟล์ดังนี้: {current_files}")
+        st.error(f"หาไฟล์โมเดลไม่เจอในระบบ! รายชื่อไฟล์ที่มี: {current_files}")
         st.error(f"รายละเอียด Error: {e}")
         return None
 
-if md:
+# --- 2. ส่วนการเรียกใช้งาน (จุดที่ก่อนหน้านี้หายไป) ---
+
+# เรียกใช้ฟังก์ชันและเก็บค่าไว้ในตัวแปร md
+md = load_all()
+
+# เช็คว่าโหลดสำเร็จไหม ถ้าสำเร็จค่อยแสดงหน้าแอป
+if md is not None:
     st.toast("เตรียมโมเดลทั้งหมดพร้อมใช้งานแล้ว!", icon="✅")
+    
+    # --- ต่อไปนี้คือส่วนแสดงผลของแอปคุณ (ตัวอย่าง) ---
+    st.title("AI Prediction App")
+    st.write("โมเดลถูกโหลดเรียบร้อยแล้ว เริ่มใช้งานได้เลย!")
+    
+    # โค้ดส่วนที่เหลือของแอปคุณ (เช่น st.text_input, st.button) ให้ใส่ต่อด้านล่างนี้ครับ
+    
+else:
+    st.error("แอปไม่สามารถเริ่มทำงานได้ เนื่องจากโหลดโมเดลไม่สำเร็จ")
     
 
 st.set_page_config(
