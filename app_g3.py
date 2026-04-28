@@ -10,70 +10,22 @@ import datetime
 import json
 from groq import Groq
 import zipfile
+import gdown
 
 # ==========================================
 # 1. ฟังก์ชันโหลดโมเดล (รองรับไฟล์ขนาดใหญ่)
 # ==========================================
-@st.cache_resource
-def load_all():
-    zip_name = "models.zip"
-    zip_id = "1XuhPqeszu2MU3wQ0fOS-b729k2p-gdhj"
-    
-    # ใช้ requests เพื่อจัดการ Direct Download สำหรับไฟล์ขนาดใหญ่
-    def download_file_from_google_drive(id, destination):
-        URL = "https://docs.google.com/uc?export=download"
-        session = requests.Session()
-        response = session.get(URL, params={'id': id}, stream=True)
-        token = None
-        for key, value in response.cookies.items():
-            if key.startswith('download_warning'):
-                token = value
-                break
-        if token:
-            params = {'id': id, 'confirm': token}
-            response = session.get(URL, params=params, stream=True)
-        
-        with open(destination, "wb") as f:
-            for chunk in response.iter_content(32768):
-                if chunk: f.write(chunk)
+def load_models():
+    # ถ้ายังไม่มีโฟลเดอร์ models ให้โหลด
+    if not os.path.exists("models"):
+        url = "https://drive.google.com/uc?id=PUT_FILE_ID_HERE"
+        gdown.download(url, "models.zip", quiet=False)
 
-    def find_path(name):
-        for root, dirs, files in os.walk("."):
-            if name in files: return os.path.join(root, name)
-        return None
+        # แตกไฟล์
+        with zipfile.ZipFile("models.zip", 'r') as zip_ref:
+            zip_ref.extractall("models")
 
-    # ตรวจสอบไฟล์หลัก
-    if find_path("features_g1_short.pkl") is None:
-        try:
-            with st.spinner('กำลังโหลดโมเดลขนาดใหญ่ (อาจใช้เวลาสักครู่)...'):
-                if os.path.exists(zip_name): os.remove(zip_name)
-                
-                download_file_from_google_drive(zip_id, zip_name)
-                
-                with zipfile.ZipFile(zip_name, 'r') as zip_ref:
-                    zip_ref.extractall(".")
-                os.remove(zip_name)
-        except Exception as e:
-            st.error(f"การติดตั้งล้มเหลว: {e}")
-            return None
-
-    try:
-        p_short = find_path("ensemble_short_models.pkl")
-        p_long  = find_path("ensemble_long_models.pkl")
-        p_feat  = find_path("features_g1_short.pkl")
-
-        if not all([p_short, p_long, p_feat]):
-            st.error("ไฟล์ในระบบไม่ครบ!")
-            return None
-
-        return {
-            'g1_short': joblib.load(p_short),
-            'g1_long':  joblib.load(p_long),
-            'g1_f_s':   joblib.load(p_feat),
-        }
-    except Exception as e:
-        st.error(f"Error: {e}")
-        return None
+    return "models loaded"
     
 #UI#
 st.set_page_config(
