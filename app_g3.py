@@ -30,7 +30,7 @@ plt.rcParams['font.family'] = 'Sarabun'
 def load_all():
       # 📦 1. โหลด zip ถ้ายังไม่มี
     if not os.path.exists("models"):
-        url = "https://drive.google.com/uc?id=PUT_FILE_ID_HERE"
+        url = "https://drive.google.com/file/d/1XuhPqeszu2MU3wQ0fOS-b729k2p-gdhj/view"
         gdown.download(url, "models.zip", quiet=False)
 
         # 📂 แตก zip
