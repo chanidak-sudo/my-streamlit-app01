@@ -9,59 +9,55 @@ import urllib.request
 import datetime
 import json
 from groq import Groq
+import zipfile
 
-# 1. ฟังก์ชันสำหรับโหลดและเตรียมโมเดล
+# ==========================================
+# 1. ฟังก์ชันโหลดโมเดล (ดาวน์โหลดจาก Google Drive)
+# ==========================================
 @st.cache_resource
 def load_all():
+    # ชื่อไฟล์ ZIP และ ID จาก Google Drive (ตรวจสอบให้มั่นใจว่าไฟล์ใน Drive เป็น .zip)
     zip_name = "models.zip"
-    zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn"
+    zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn" 
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    # เช็คว่าถ้ายังไม่มีไฟล์หลัก ให้โหลดและแตก ZIP
+    # ตรวจสอบว่ามีไฟล์ที่แตกออกมาหรือยัง (ใช้ features_g1_short.pkl เป็นตัวอ้างอิง)
     if not os.path.exists("features_g1_short.pkl"):
         try:
-            with st.spinner('กำลังดาวน์โหลดโมเดลจาก Google Drive...'):
+            with st.spinner('กำลังดาวน์โหลดและเตรียมโมเดล...'):
+                # ดาวน์โหลดไฟล์ ZIP
                 urllib.request.urlretrieve(url, zip_name)
+                
+                # แตกไฟล์ ZIP ออกมาไว้ที่โฟลเดอร์หลัก
                 with zipfile.ZipFile(zip_name, 'r') as zip_ref:
-                    zip_ref.extractall(".")  # แตกไฟล์ออกมาที่โฟลเดอร์ปัจจุบัน
-                os.remove(zip_name) # ลบไฟล์ Zip ทิ้งเพื่อประหยัดที่
+                    zip_ref.extractall(".")
+                
+                # ลบไฟล์ ZIP ทิ้งหลังจากแตกเสร็จเพื่อประหยัดพื้นที่
+                if os.path.exists(zip_name):
+                    os.remove(zip_name)
         except Exception as e:
-            st.error(f"ดาวน์โหลดหรือแตกไฟล์ไม่สำเร็จ: {e}")
+            st.error(f"เกิดข้อผิดพลาดในการดาวน์โหลด/แตกไฟล์: {e}")
             return None
 
-    # รายชื่อไฟล์ที่มีอยู่จริงในระบบ (เอาไว้ใช้ตรวจสอบถ้า Error)
-    current_files = os.listdir(".")
-    
+    # ฟังก์ชันช่วยหา Path ของไฟล์ (กันพลาดกรณี Zip ติดโฟลเดอร์มา)
+    def find_file(name):
+        for root, dirs, files in os.walk("."):
+            if name in files:
+                return os.path.join(root, name)
+        return name
+
     try:
-        # โหลดไฟล์เข้า Dictionary
-        # หมายเหตุ: ถ้าคุณแตก Zip แล้วมันกลายเป็นโฟลเดอร์ ให้เติมชื่อโฟลเดอร์ข้างหน้าชื่อไฟล์นะครับ
-        return {
-            'g1_short': joblib.load("ensemble_short_models.pkl"),
-            'g1_long':  joblib.load("ensemble_long_models.pkl"),
-            'g1_f_s':   joblib.load("features_g1_short.pkl"),
+        # โหลดโมเดลและฟีเจอร์ด้วย joblib
+        data = {
+            'g1_short': joblib.load(find_file("ensemble_short_models.pkl")),
+            'g1_long':  joblib.load(find_file("ensemble_long_models.pkl")),
+            'g1_f_s':   joblib.load(find_file("features_g1_short.pkl")),
         }
+        return data
     except Exception as e:
-        st.error(f"หาไฟล์โมเดลไม่เจอในระบบ! รายชื่อไฟล์ที่มี: {current_files}")
-        st.error(f"รายละเอียด Error: {e}")
+        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
+        st.write("ไฟล์ที่มีในระบบขณะนี้:", os.listdir("."))
         return None
-
-# --- 2. ส่วนการเรียกใช้งาน (จุดที่ก่อนหน้านี้หายไป) ---
-
-# เรียกใช้ฟังก์ชันและเก็บค่าไว้ในตัวแปร md
-md = load_all()
-
-# เช็คว่าโหลดสำเร็จไหม ถ้าสำเร็จค่อยแสดงหน้าแอป
-if md is not None:
-    st.toast("เตรียมโมเดลทั้งหมดพร้อมใช้งานแล้ว!", icon="✅")
-    
-    # --- ต่อไปนี้คือส่วนแสดงผลของแอปคุณ (ตัวอย่าง) ---
-    st.title("AI Prediction App")
-    st.write("โมเดลถูกโหลดเรียบร้อยแล้ว เริ่มใช้งานได้เลย!")
-    
-    # โค้ดส่วนที่เหลือของแอปคุณ (เช่น st.text_input, st.button) ให้ใส่ต่อด้านล่างนี้ครับ
-    
-else:
-    st.error("แอปไม่สามารถเริ่มทำงานได้ เนื่องจากโหลดโมเดลไม่สำเร็จ")
     
 
 st.set_page_config(
