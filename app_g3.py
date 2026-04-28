@@ -13,34 +13,31 @@ from groq import Groq
 # ฟังก์ชันสำหรับโหลดโมเดล (ปรับปรุงใหม่)
 @st.cache_resource
 def load_all():
-    # กำหนดชื่อไฟล์และที่อยู่ให้ชัดเจน
-    file_name = "ensemble_short_models.pkl"
-    # ใช้ os.getcwd() เพื่อหาโฟลเดอร์ที่แอปกำลังรันอยู่จริงๆ
-    save_path = os.path.join(os.getcwd(), file_name)
+    # สร้าง List ของไฟล์ที่ต้องดาวน์โหลด (รวมทุกไฟล์ที่ใหญ่เกิน 25MB)
+    files_to_download = {
+        "ensemble_short_models.pkl": "1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW",
+        "ensemble_long_models.pkl": "1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW",
+        # "scaler.pkl": "ใส่_ID_ถ้ามีไฟล์อื่นอีก"
+    }
     
-    url = f"https://drive.google.com/uc?export=download&id=1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW"
+    loaded_models = {}
     
-    # 1. ดาวน์โหลดถ้ายังไม่มีไฟล์
-    if not os.path.exists(save_path):
-        try:
-            with st.spinner('กำลังดึงข้อมูลโมเดล...'):
+    for file_name, file_id in files_to_download.items():
+        save_path = os.path.join(os.getcwd(), file_name)
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
+        if not os.path.exists(save_path):
+            with st.spinner(f'กำลังโหลด {file_name}...'):
                 urllib.request.urlretrieve(url, save_path)
-        except Exception as e:
-            st.error(f"Download Error: {e}")
-            return None
-
-    # 2. โหลดไฟล์จากพาธที่ระบุไว้ชัดเจน
-    try:
-        # ตรวจสอบอีกทีว่าไฟล์มาจริงไหมก่อนโหลด
-        if os.path.exists(save_path):
-            model = joblib.load(save_path)
-            return model
-        else:
-            st.error("ไฟล์หายไประหว่างทาง!")
-            return None
-    except Exception as e:
-        st.error(f"Load Error: {e}")
-        return None
+        
+        # โหลดเข้า Dictionary
+        loaded_models[file_name.replace('.pkl', '')] = joblib.load(save_path)
+    
+    # ส่งคืนค่าให้ตรงกับที่คุณเรียกใช้ในบรรทัดที่ 66
+    return {
+        'g1_short': loaded_models['ensemble_short_models'],
+        'g1_long':  loaded_models['ensemble_long_models']
+    }
 
 md = load_all()
     
