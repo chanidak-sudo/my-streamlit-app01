@@ -11,34 +11,38 @@ import json
 from groq import Groq
 
 # ฟังก์ชันสำหรับโหลดโมเดล (ปรับปรุงใหม่)
-@st.cache_resource # ใช้ cache เพื่อให้โหลดแค่ครั้งเดียว ไม่โหลดใหม่ทุกครั้งที่กดปุ่ม
+@st.cache_resource
 def load_all():
+    # กำหนดชื่อไฟล์และที่อยู่ให้ชัดเจน
     file_name = "ensemble_short_models.pkl"
-    # ลิงก์ดาวน์โหลดตรงที่แปลงจาก Google Drive ของคุณ
+    # ใช้ os.getcwd() เพื่อหาโฟลเดอร์ที่แอปกำลังรันอยู่จริงๆ
+    save_path = os.path.join(os.getcwd(), file_name)
+    
     url = f"https://drive.google.com/uc?export=download&id=1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW"
     
-    # เช็คว่าถ้ายังไม่มีไฟล์ในเซิร์ฟเวอร์ ให้ดาวน์โหลดมาก่อน
-    if not os.path.exists(file_name):
+    # 1. ดาวน์โหลดถ้ายังไม่มีไฟล์
+    if not os.path.exists(save_path):
         try:
-            with st.spinner('กำลังดาวน์โหลดโมเดลจาก Google Drive (ขนาดใหญ่กว่า 25MB)...'):
-                urllib.request.urlretrieve(url, file_name)
+            with st.spinner('กำลังดึงข้อมูลโมเดล...'):
+                urllib.request.urlretrieve(url, save_path)
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์: {e}")
+            st.error(f"Download Error: {e}")
             return None
 
-    # เมื่อมีไฟล์แล้วจึงทำการโหลดด้วย joblib
+    # 2. โหลดไฟล์จากพาธที่ระบุไว้ชัดเจน
     try:
-        model = joblib.load(file_name)
-        return model
+        # ตรวจสอบอีกทีว่าไฟล์มาจริงไหมก่อนโหลด
+        if os.path.exists(save_path):
+            model = joblib.load(save_path)
+            return model
+        else:
+            st.error("ไฟล์หายไประหว่างทาง!")
+            return None
     except Exception as e:
-        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
+        st.error(f"Load Error: {e}")
         return None
 
-# เรียกใช้งาน
 md = load_all()
-
-if md is not None:
-    st.success("โหลดโมเดลเรียบร้อยแล้ว!")
     
 
 st.set_page_config(
