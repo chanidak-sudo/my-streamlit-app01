@@ -18,7 +18,7 @@ import zipfile
 def load_all():
     # ชื่อไฟล์ ZIP และ ID จาก Google Drive (ตรวจสอบให้มั่นใจว่าไฟล์ใน Drive เป็น .zip)
     zip_name = "models.zip"
-    zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn" 
+    zip_id = "1XuhPqeszu2MU3wQ0fOS-b729k2p-gdhj" 
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
     # ตรวจสอบว่ามีไฟล์ที่แตกออกมาหรือยัง (ใช้ features_g1_short.pkl เป็นตัวอ้างอิง)
