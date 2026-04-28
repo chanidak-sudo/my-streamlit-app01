@@ -12,51 +12,59 @@ from groq import Groq
 import zipfile
 
 # ==========================================
-# 1. ฟังก์ชันโหลดโมเดล (ดาวน์โหลดจาก Google Drive)
+# 1. ฟังก์ชันโหลดโมเดล (เชื่อมกับไฟล์ ZIP ใหม่)
 # ==========================================
 @st.cache_resource
 def load_all():
-    # ชื่อไฟล์ ZIP และ ID จาก Google Drive (ตรวจสอบให้มั่นใจว่าไฟล์ใน Drive เป็น .zip)
+    # ชื่อไฟล์ ZIP และ ID ใหม่ที่คุณเพิ่งส่งมา
     zip_name = "models.zip"
     zip_id = "1XuhPqeszu2MU3wQ0fOS-b729k2p-gdhj" 
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    # ตรวจสอบว่ามีไฟล์ที่แตกออกมาหรือยัง (ใช้ features_g1_short.pkl เป็นตัวอ้างอิง)
-    if not os.path.exists("features_g1_short.pkl"):
+    # รายชื่อไฟล์ที่แอปต้องการใช้
+    required_files = ["ensemble_short_models.pkl", "ensemble_long_models.pkl", "features_g1_short.pkl"]
+    
+    # เช็คว่าไฟล์ครบหรือไม่ ถ้าไม่ครบให้เริ่มกระบวนการใหม่
+    missing_files = [f for f in required_files if not os.path.exists(f)]
+    
+    if missing_files:
         try:
-            with st.spinner('กำลังดาวน์โหลดและเตรียมโมเดล...'):
-                # ดาวน์โหลดไฟล์ ZIP
+            with st.spinner('กำลังดาวน์โหลดและแตกไฟล์โมเดล (กรุณารอสักครู่)...'):
+                # ล้างไฟล์เก่าออกก่อนเพื่อป้องกันไฟล์เสียค้างในระบบ
+                if os.path.exists(zip_name):
+                    os.remove(zip_name)
+                
+                # ดาวน์โหลดไฟล์ ZIP จากลิงก์ใหม่
                 urllib.request.urlretrieve(url, zip_name)
                 
-                # แตกไฟล์ ZIP ออกมาไว้ที่โฟลเดอร์หลัก
+                # แตกไฟล์ออกมาที่ตำแหน่งปัจจุบัน
                 with zipfile.ZipFile(zip_name, 'r') as zip_ref:
                     zip_ref.extractall(".")
                 
-                # ลบไฟล์ ZIP ทิ้งหลังจากแตกเสร็จเพื่อประหยัดพื้นที่
-                if os.path.exists(zip_name):
-                    os.remove(zip_name)
+                # ลบไฟล์ ZIP ทิ้งหลังจากแตกเสร็จ
+                os.remove(zip_name)
+                st.success("ดาวน์โหลดและติดตั้งโมเดลสำเร็จ!")
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการดาวน์โหลด/แตกไฟล์: {e}")
+            st.error(f"เกิดปัญหาในการดาวน์โหลด: {e}")
             return None
 
-    # ฟังก์ชันช่วยหา Path ของไฟล์ (กันพลาดกรณี Zip ติดโฟลเดอร์มา)
-    def find_file(name):
+    # ฟังก์ชันช่วยหา Path (กรณีใน ZIP มีโฟลเดอร์ซ้อน)
+    def find_path(name):
         for root, dirs, files in os.walk("."):
             if name in files:
                 return os.path.join(root, name)
-        return name
+        return None
 
     try:
-        # โหลดโมเดลและฟีเจอร์ด้วย joblib
-        data = {
-            'g1_short': joblib.load(find_file("ensemble_short_models.pkl")),
-            'g1_long':  joblib.load(find_file("ensemble_long_models.pkl")),
-            'g1_f_s':   joblib.load(find_file("features_g1_short.pkl")),
+        # โหลดโมเดลด้วย joblib
+        return {
+            'g1_short': joblib.load(find_path("ensemble_short_models.pkl")),
+            'g1_long':  joblib.load(find_path("ensemble_long_models.pkl")),
+            'g1_f_s':   joblib.load(find_path("features_g1_short.pkl")),
         }
-        return data
     except Exception as e:
-        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
-        st.write("ไฟล์ที่มีในระบบขณะนี้:", os.listdir("."))
+        st.error(f"Error ตอนโหลดโมเดล: {e}")
+        st.write("ไฟล์ที่พบในระบบตอนนี้:", os.listdir("."))
         return None
     
 
