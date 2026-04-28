@@ -10,6 +10,37 @@ import datetime
 import json
 from groq import Groq
 
+# ฟังก์ชันสำหรับโหลดโมเดล (ปรับปรุงใหม่)
+@st.cache_resource # ใช้ cache เพื่อให้โหลดแค่ครั้งเดียว ไม่โหลดใหม่ทุกครั้งที่กดปุ่ม
+def load_all():
+    file_name = "ensemble_short_models.pkl"
+    # ลิงก์ดาวน์โหลดตรงที่แปลงจาก Google Drive ของคุณ
+    url = f"https://drive.google.com/uc?export=download&id=1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW"
+    
+    # เช็คว่าถ้ายังไม่มีไฟล์ในเซิร์ฟเวอร์ ให้ดาวน์โหลดมาก่อน
+    if not os.path.exists(file_name):
+        try:
+            with st.spinner('กำลังดาวน์โหลดโมเดลจาก Google Drive (ขนาดใหญ่กว่า 25MB)...'):
+                urllib.request.urlretrieve(url, file_name)
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์: {e}")
+            return None
+
+    # เมื่อมีไฟล์แล้วจึงทำการโหลดด้วย joblib
+    try:
+        model = joblib.load(file_name)
+        return model
+    except Exception as e:
+        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
+        return None
+
+# เรียกใช้งาน
+md = load_all()
+
+if md is not None:
+    st.success("โหลดโมเดลเรียบร้อยแล้ว!")
+    
+
 st.set_page_config(
     page_title="SME Early Warning System",
     page_icon="🚨",
