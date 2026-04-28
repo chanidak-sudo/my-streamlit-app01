@@ -14,42 +14,35 @@ from groq import Groq
 @st.cache_resource
 def load_all():
     zip_name = "models.zip"
-    # ID จากลิงก์ที่คุณส่งมา
     zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn"
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    # ทางลัด: เช็คว่าถ้าแตกไฟล์ออกมาแล้ว (เช็คตัวหลักสักตัว) ก็ไม่ต้องโหลดซ้ำ
-    if not os.path.exists("ensemble_short_models.pkl"):
+    # เช็คว่าไฟล์หลักตัวนึงมีอยู่มั้ย ถ้าไม่มีให้โหลดใหม่
+    if not os.path.exists("features_g1_short.pkl"):
         try:
-            with st.spinner('กำลังดาวน์โหลดและเตรียมโมเดล (ครั้งแรกเท่านั้น)...'):
-                # ดาวน์โหลดไฟล์ ZIP
+            with st.spinner('กำลังเตรียมโมเดล...'):
                 urllib.request.urlretrieve(url, zip_name)
-                
-                # แตกไฟล์ออกมาในโฟลเดอร์ปัจจุบัน
                 with zipfile.ZipFile(zip_name, 'r') as zip_ref:
-                    zip_ref.extractall(os.getcwd())
-                
-                # ลบไฟล์ ZIP ทิ้งเพื่อประหยัดพื้นที่ (optional)
+                    # แตกไฟล์ออกมาตรงๆ ไม่สร้างโฟลเดอร์ซ้อน
+                    zip_ref.extractall(".") 
                 os.remove(zip_name)
         except Exception as e:
-            st.error(f"เกิดปัญหาในการเตรียมไฟล์: {e}")
-            return None
+            st.error(f"Error during unzip: {e}")
 
-    # 2. โหลดไฟล์ .pkl ทั้งหมดเข้าสู่แอปตามโครงสร้างเดิมของคุณ
+    # ตรวจสอบไฟล์ที่มีอยู่จริง (บรรทัดนี้จะช่วยให้คุณรู้ว่าไฟล์ไปอยู่ที่ไหน)
+    current_files = os.listdir(".")
+    
     try:
         return {
             'g1_short': joblib.load("ensemble_short_models.pkl"),
             'g1_long':  joblib.load("ensemble_long_models.pkl"),
             'g1_f_s':   joblib.load("features_g1_short.pkl"),
-            # ถ้ามีไฟล์อื่นๆ ใน ZIP อีก ให้ใส่เพิ่มตรงนี้ได้เลยครับ
-            # 'g1_f_l': joblib.load("features_g1_long.pkl"), 
         }
     except Exception as e:
-        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
+        # ถ้าพัง ให้โชว์รายชื่อไฟล์ที่มีทั้งหมด จะได้รู้ว่าสะกดชื่อไหนผิด
+        st.error(f"หาไฟล์ไม่เจอ! ในเครื่องมีไฟล์ดังนี้: {current_files}")
+        st.error(f"รายละเอียด Error: {e}")
         return None
-
-# 3. เรียกใช้งาน
-md = load_all()
 
 if md:
     st.toast("เตรียมโมเดลทั้งหมดพร้อมใช้งานแล้ว!", icon="✅")
