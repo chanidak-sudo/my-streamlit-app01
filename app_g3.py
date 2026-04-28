@@ -11,22 +11,6 @@ import json
 from groq import Groq
 import zipfile
 import gdown
-
-# ==========================================
-# 1. ฟังก์ชันโหลดโมเดล (รองรับไฟล์ขนาดใหญ่)
-# ==========================================
-def load_models():
-    # ถ้ายังไม่มีโฟลเดอร์ models ให้โหลด
-    if not os.path.exists("models"):
-        url = "https://drive.google.com/uc?id=PUT_FILE_ID_HERE"
-        gdown.download(url, "models.zip", quiet=False)
-
-        # แตกไฟล์
-        with zipfile.ZipFile("models.zip", 'r') as zip_ref:
-            zip_ref.extractall("models")
-
-    return "models loaded"
-    
 #UI#
 st.set_page_config(
     page_title="SME Early Warning System",
@@ -44,36 +28,56 @@ plt.rcParams['font.family'] = 'Sarabun'
 
 @st.cache_resource
 def load_all():
+      # 📦 1. โหลด zip ถ้ายังไม่มี
+    if not os.path.exists("models"):
+        url = "https://drive.google.com/uc?id=PUT_FILE_ID_HERE"
+        gdown.download(url, "models.zip", quiet=False)
+
+        # 📂 แตก zip
+        with zipfile.ZipFile("models.zip", 'r') as zip_ref:
+            zip_ref.extractall("models")
+
+    # 🔍 helper โหลดไฟล์
+    def load(name):
+        path = os.path.join("models", name)
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"❌ ไม่พบไฟล์: {path}")
+        return joblib.load(path)
+
+    # 📊 2. โหลดทุก model
     return {
-        'g1_short':    joblib.load("ensemble_short_models.pkl"),
-        'g1_long':     joblib.load("ensemble_long_models.pkl"),
-        'g1_sc_s':     joblib.load("scaler_g1_short.pkl"),
-        'g1_sc_l':     joblib.load("scaler_g1_long.pkl"),
-        'g1_f_s':      joblib.load("features_g1_short.pkl"),
-        'g1_f_l':      joblib.load("features_g1_long.pkl"),
-        'g1_le':       joblib.load("label_encoder_g1.pkl"),
-        'g1_w_s':      joblib.load("weights_short.pkl"),
-        'g1_w_l':      joblib.load("weights_long.pkl"),
-        'g1_avg':      joblib.load("avg_by_province_month.pkl"),
-        'g2_short':    joblib.load("ensemble_short_models_g2.pkl"),
-        'g2_long':     joblib.load("ensemble_long_models_g2.pkl"),
-        'g2_sc_s':     joblib.load("scaler_g2_short.pkl"),
-        'g2_sc_l':     joblib.load("scaler_g2_long.pkl"),
-        'g2_f_s':      joblib.load("features_g2_short.pkl"),
-        'g2_f_l':      joblib.load("features_g2_long.pkl"),
-        'g2_le':       joblib.load("label_encoder_g2.pkl"),
-        'g2_w_s':      joblib.load("weights_short_g2.pkl"),
-        'g2_w_l':      joblib.load("weights_long_g2.pkl"),
-        'g2_avg':      joblib.load("avg_revenue_by_province_month.pkl"),
-        'g3_clf':      joblib.load("model_g3_classifier.pkl"),
-        'g3_sc':       joblib.load("scaler_g3.pkl"),
-        'g3_robust':   joblib.load("robust_scaler_g3.pkl"),
-        'g3_le_prov':  joblib.load("label_encoder_g3_province.pkl"),
-        'g3_le_sea':   joblib.load("label_encoder_g3_season.pkl"),
-        'g3_feats':    joblib.load("features_g3.pkl"),
-        'g3_avg_t':    joblib.load("avg_tourist_g3.pkl"),
-        'g3_avg_r':    joblib.load("avg_revenue_g3.pkl"),
-        'metrics':     joblib.load("model_metrics.pkl"),
+        'g1_short':    load("ensemble_short_models.pkl"),
+        'g1_long':     load("ensemble_long_models.pkl"),
+        'g1_sc_s':     load("scaler_g1_short.pkl"),
+        'g1_sc_l':     load("scaler_g1_long.pkl"),
+        'g1_f_s':      load("features_g1_short.pkl"),
+        'g1_f_l':      load("features_g1_long.pkl"),
+        'g1_le':       load("label_encoder_g1.pkl"),
+        'g1_w_s':      load("weights_short.pkl"),
+        'g1_w_l':      load("weights_long.pkl"),
+        'g1_avg':      load("avg_by_province_month.pkl"),
+
+        'g2_short':    load("ensemble_short_models_g2.pkl"),
+        'g2_long':     load("ensemble_long_models_g2.pkl"),
+        'g2_sc_s':     load("scaler_g2_short.pkl"),
+        'g2_sc_l':     load("scaler_g2_long.pkl"),
+        'g2_f_s':      load("features_g2_short.pkl"),
+        'g2_f_l':      load("features_g2_long.pkl"),
+        'g2_le':       load("label_encoder_g2.pkl"),
+        'g2_w_s':      load("weights_short_g2.pkl"),
+        'g2_w_l':      load("weights_long_g2.pkl"),
+        'g2_avg':      load("avg_revenue_by_province_month.pkl"),
+
+        'g3_clf':      load("model_g3_classifier.pkl"),
+        'g3_sc':       load("scaler_g3.pkl"),
+        'g3_robust':   load("robust_scaler_g3.pkl"),
+        'g3_le_prov':  load("label_encoder_g3_province.pkl"),
+        'g3_le_sea':   load("label_encoder_g3_season.pkl"),
+        'g3_feats':    load("features_g3.pkl"),
+        'g3_avg_t':    load("avg_tourist_g3.pkl"),
+        'g3_avg_r':    load("avg_revenue_g3.pkl"),
+
+        'metrics':     load("model_metrics.pkl"),
     }
 
 md = load_all()
