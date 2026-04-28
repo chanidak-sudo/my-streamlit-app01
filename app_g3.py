@@ -13,33 +13,46 @@ from groq import Groq
 # ฟังก์ชันสำหรับโหลดโมเดล (ปรับปรุงใหม่)
 @st.cache_resource
 def load_all():
-    # สร้าง List ของไฟล์ที่ต้องดาวน์โหลด (รวมทุกไฟล์ที่ใหญ่เกิน 25MB)
-    files_to_download = {
-        "ensemble_short_models.pkl": "1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW",
-        "ensemble_long_models.pkl": "1wTbk28p5NzW9l40-XWWWZZNlDG-pYsiW",
-        # "scaler.pkl": "ใส่_ID_ถ้ามีไฟล์อื่นอีก"
-    }
+    zip_name = "models.zip"
+    # ID จากลิงก์ที่คุณส่งมา
+    zip_id = "1Wzn62qvMrkPHK4noz-UOH-IFkGn9f2Kn"
+    url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    loaded_models = {}
-    
-    for file_name, file_id in files_to_download.items():
-        save_path = os.path.join(os.getcwd(), file_name)
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        
-        if not os.path.exists(save_path):
-            with st.spinner(f'กำลังโหลด {file_name}...'):
-                urllib.request.urlretrieve(url, save_path)
-        
-        # โหลดเข้า Dictionary
-        loaded_models[file_name.replace('.pkl', '')] = joblib.load(save_path)
-    
-    # ส่งคืนค่าให้ตรงกับที่คุณเรียกใช้ในบรรทัดที่ 66
-    return {
-        'g1_short': loaded_models['ensemble_short_models'],
-        'g1_long':  loaded_models['ensemble_long_models']
-    }
+    # ทางลัด: เช็คว่าถ้าแตกไฟล์ออกมาแล้ว (เช็คตัวหลักสักตัว) ก็ไม่ต้องโหลดซ้ำ
+    if not os.path.exists("ensemble_short_models.pkl"):
+        try:
+            with st.spinner('กำลังดาวน์โหลดและเตรียมโมเดล (ครั้งแรกเท่านั้น)...'):
+                # ดาวน์โหลดไฟล์ ZIP
+                urllib.request.urlretrieve(url, zip_name)
+                
+                # แตกไฟล์ออกมาในโฟลเดอร์ปัจจุบัน
+                with zipfile.ZipFile(zip_name, 'r') as zip_ref:
+                    zip_ref.extractall(os.getcwd())
+                
+                # ลบไฟล์ ZIP ทิ้งเพื่อประหยัดพื้นที่ (optional)
+                os.remove(zip_name)
+        except Exception as e:
+            st.error(f"เกิดปัญหาในการเตรียมไฟล์: {e}")
+            return None
 
+    # 2. โหลดไฟล์ .pkl ทั้งหมดเข้าสู่แอปตามโครงสร้างเดิมของคุณ
+    try:
+        return {
+            'g1_short': joblib.load("ensemble_short_models.pkl"),
+            'g1_long':  joblib.load("ensemble_long_models.pkl"),
+            'g1_f_s':   joblib.load("features_g1_short.pkl"),
+            # ถ้ามีไฟล์อื่นๆ ใน ZIP อีก ให้ใส่เพิ่มตรงนี้ได้เลยครับ
+            # 'g1_f_l': joblib.load("features_g1_long.pkl"), 
+        }
+    except Exception as e:
+        st.error(f"โหลดโมเดลไม่สำเร็จ: {e}")
+        return None
+
+# 3. เรียกใช้งาน
 md = load_all()
+
+if md:
+    st.toast("เตรียมโมเดลทั้งหมดพร้อมใช้งานแล้ว!", icon="✅")
     
 
 st.set_page_config(
