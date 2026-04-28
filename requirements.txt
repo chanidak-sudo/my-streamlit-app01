@@ -4,3 +4,4 @@ numpy
 matplotlib
 joblib
 groq
+scikit-learn
