@@ -12,60 +12,84 @@ from groq import Groq
 import zipfile
 
 # ==========================================
-# 1. ฟังก์ชันโหลดโมเดล (เชื่อมกับไฟล์ ZIP ใหม่)
+# 1. ฟังก์ชันโหลดโมเดล (ปรับปรุงการค้นหาไฟล์)
 # ==========================================
 @st.cache_resource
 def load_all():
-    # ชื่อไฟล์ ZIP และ ID ใหม่ที่คุณเพิ่งส่งมา
     zip_name = "models.zip"
     zip_id = "1XuhPqeszu2MU3wQ0fOS-b729k2p-gdhj" 
     url = f"https://drive.google.com/uc?export=download&id={zip_id}"
     
-    # รายชื่อไฟล์ที่แอปต้องการใช้
-    required_files = ["ensemble_short_models.pkl", "ensemble_long_models.pkl", "features_g1_short.pkl"]
-    
-    # เช็คว่าไฟล์ครบหรือไม่ ถ้าไม่ครบให้เริ่มกระบวนการใหม่
-    missing_files = [f for f in required_files if not os.path.exists(f)]
-    
-    if missing_files:
-        try:
-            with st.spinner('กำลังดาวน์โหลดและแตกไฟล์โมเดล (กรุณารอสักครู่)...'):
-                # ล้างไฟล์เก่าออกก่อนเพื่อป้องกันไฟล์เสียค้างในระบบ
-                if os.path.exists(zip_name):
-                    os.remove(zip_name)
-                
-                # ดาวน์โหลดไฟล์ ZIP จากลิงก์ใหม่
-                urllib.request.urlretrieve(url, zip_name)
-                
-                # แตกไฟล์ออกมาที่ตำแหน่งปัจจุบัน
-                with zipfile.ZipFile(zip_name, 'r') as zip_ref:
-                    zip_ref.extractall(".")
-                
-                # ลบไฟล์ ZIP ทิ้งหลังจากแตกเสร็จ
-                os.remove(zip_name)
-                st.success("ดาวน์โหลดและติดตั้งโมเดลสำเร็จ!")
-        except Exception as e:
-            st.error(f"เกิดปัญหาในการดาวน์โหลด: {e}")
-            return None
-
-    # ฟังก์ชันช่วยหา Path (กรณีใน ZIP มีโฟลเดอร์ซ้อน)
+    # ฟังก์ชันช่วยหาตำแหน่งไฟล์ที่แท้จริง (Search deep)
     def find_path(name):
         for root, dirs, files in os.walk("."):
             if name in files:
                 return os.path.join(root, name)
         return None
 
+    # ตรวจสอบว่าไฟล์หลักตัวนึงมีอยู่ไหม ถ้าไม่มีให้โหลดและแตก Zip ใหม่
+    main_file = find_path("features_g1_short.pkl")
+    
+    if main_file is None:
+        try:
+            with st.spinner('กำลังติดตั้งโมเดลจาก Google Drive (ครั้งแรกเท่านั้น)...'):
+                # ลบไฟล์ zip เก่า (ถ้ามี)
+                if os.path.exists(zip_name):
+                    os.remove(zip_name)
+                
+                # ดาวน์โหลด
+                urllib.request.urlretrieve(url, zip_name)
+                
+                # แตกลงที่โฟลเดอร์ปัจจุบัน
+                with zipfile.ZipFile(zip_name, 'r') as zip_ref:
+                    zip_ref.extractall(".")
+                
+                os.remove(zip_name)
+                # ค้นหาพาธใหม่อีกครั้งหลังจากแตกไฟล์เสร็จ
+                main_file = find_path("features_g1_short.pkl")
+        except Exception as e:
+            st.error(f"การดาวน์โหลดหรือแตกไฟล์ล้มเหลว: {e}")
+            return None
+
+    # เริ่มการโหลดไฟล์ .pkl โดยใช้พาธที่หาเจอจริง
     try:
-        # โหลดโมเดลด้วย joblib
+        path_short = find_path("ensemble_short_models.pkl")
+        path_long  = find_path("ensemble_long_models.pkl")
+        path_feat  = find_path("features_g1_short.pkl")
+
+        if not all([path_short, path_long, path_feat]):
+            st.error("ไฟล์ใน ZIP ไม่ครบตามที่กำหนด!")
+            st.write("ไฟล์ที่เจอ:", os.listdir("."))
+            return None
+
         return {
-            'g1_short': joblib.load(find_path("ensemble_short_models.pkl")),
-            'g1_long':  joblib.load(find_path("ensemble_long_models.pkl")),
-            'g1_f_s':   joblib.load(find_path("features_g1_short.pkl")),
+            'g1_short': joblib.load(path_short),
+            'g1_long':  joblib.load(path_long),
+            'g1_f_s':   joblib.load(path_feat),
         }
     except Exception as e:
-        st.error(f"Error ตอนโหลดโมเดล: {e}")
-        st.write("ไฟล์ที่พบในระบบตอนนี้:", os.listdir("."))
+        st.error(f"โหลดโมเดลเข้า Memory ไม่สำเร็จ: {e}")
         return None
+
+# ==========================================
+# 2. เริ่มต้นการทำงาน (Main App)
+# ==========================================
+
+# เคลียร์แคชถ้าหากพบปัญหา FileNotFoundError (ช่วยให้ระบบเริ่มใหม่ได้ง่ายขึ้น)
+md = load_all()
+
+if md is not None:
+    st.toast("AI พร้อมทำงาน!", icon="✅")
+    st.title("🚀 ระบบวิเคราะห์ข้อมูล AI")
+    
+    # --- ใส่โค้ดหน้าเว็บของคุณต่อที่นี่ ---
+    st.success("โมเดลติดตั้งสำเร็จแล้ว")
+    
+else:
+    st.error("ไม่สามารถเริ่มแอปได้")
+    if st.button("กดเพื่อลองติดตั้งใหม่อีกครั้ง (Reboot)"):
+        st.cache_resource.clear()
+        st.rerun()
     
 
 st.set_page_config(
